@@ -1,9 +1,17 @@
 const express = require("express");
+const cookieParser = require("cookie-parser");
 const authRoutes = require("./routes/authRoutes");
+const csrfMiddleware = require("./middleware/csrfMiddleware");
+const rateLimitMiddleware = require("./middleware/rateLimitMiddleware");
 
 const app = express();
 
+app.set("trust proxy", 1);
+
 app.use(express.json());
+app.use(cookieParser());
+app.use(rateLimitMiddleware);
+app.use(csrfMiddleware);
 
 app.use("/auth", authRoutes);
 

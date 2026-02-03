@@ -13,6 +13,7 @@ const {
   generateRefreshToken,
   verifyRefreshToken,
 } = require("../utils/jwtToken");
+const { generateCsrfToken, setCsrfCookie } = require("../utils/csrfUtils");
 
 const signup = async (req, res, next) => {
   try {
@@ -26,11 +27,15 @@ const signup = async (req, res, next) => {
 
     await addRefreshToken(user.id, refreshToken);
 
+    const csrfToken = generateCsrfToken();
+    setCsrfCookie(res, csrfToken);
+
     res.status(201).json({
       message: "User created successfully",
       user: { id: user.id, email: user.email },
       accessToken,
       refreshToken,
+      csrfToken,
     });
   } catch (error) {
     if (error.message === "User already exists") {
@@ -52,11 +57,15 @@ const login = async (req, res, next) => {
 
     await addRefreshToken(user.id, refreshToken);
 
+    const csrfToken = generateCsrfToken();
+    setCsrfCookie(res, csrfToken);
+
     res.status(200).json({
       message: "Login successful",
       user: { id: user.id, email: user.email },
       accessToken,
       refreshToken,
+      csrfToken,
     });
   } catch (error) {
     if (error.message === "Invalid credentials") {
@@ -94,9 +103,13 @@ const refreshToken = async (req, res, next) => {
     await removeRefreshToken(user.id, token);
     await addRefreshToken(user.id, newRefreshToken);
 
+    const csrfToken = generateCsrfToken();
+    setCsrfCookie(res, csrfToken);
+
     res.status(200).json({
       accessToken: newAccessToken,
       refreshToken: newRefreshToken,
+      csrfToken,
     });
   } catch (error) {
     next(error);
