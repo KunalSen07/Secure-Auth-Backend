@@ -1,4 +1,4 @@
-const { store } = require("./memoryStore");
+const { check } = require("./storeFactory");
 
 const RATE_LIMITS = {
   "/auth/login": { windowMs: 60_000, max: 5 },
@@ -6,36 +6,18 @@ const RATE_LIMITS = {
   default: { windowMs: 60_000, max: 100 },
 };
 
-function checkRateLimit({ key, path }) {
+async function checkRateLimit({ key, path }) {
   const { windowMs, max } = RATE_LIMITS[path] || RATE_LIMITS.default;
-  const now = Date.now();
 
-  let record = store.get(key);
+  const result = await check(key, windowMs, max);
 
-  if (!record) {
-    record = { timestamps: [] };
-    store.set(key, record);
-  }
-
-  record.timestamps = record.timestamps.filter((ts) => now - ts < windowMs);
-
-  const allowed = record.timestamps.length < max;
-
-  if (allowed) record.timestamps.push(now);
-
-  const remaining = Math.max(0, max - record.timestamps.length);
-  const reset =
-    record.timestamps.length > 0
-      ? Math.ceil((windowMs - (now - record.timestamps[0])) / 1000)
-      : Math.ceil(windowMs / 1000);
-
-  if (record.timestamps.length === 0) store.del(key);
+  const remaining = Math.max(0, max - result.count);
 
   return {
-    allowed,
+    allowed: result.allowed,
     limit: max,
     remaining,
-    reset,
+    reset: Math.ceil(windowMs / 1000),
   };
 }
 
