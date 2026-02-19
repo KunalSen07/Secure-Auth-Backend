@@ -1,46 +1,31 @@
+const authService = require("../services/authService");
 const {
-  signup: authSignup,
-  login: authLogin,
-} = require("../services/authService");
-const {
-  addRefreshToken,
-  findUserById,
-  removeRefreshToken,
-  hasRefreshToken,
-} = require("../services/userService");
-const {
-  generateAccessToken,
-  generateRefreshToken,
-  verifyRefreshToken,
-} = require("../utils/jwtToken");
-const { generateCsrfToken, setCsrfCookie } = require("../utils/csrfUtils");
+  setSecurityCookies,
+  clearSecurityCookies,
+} = require("../utils/securityUtils");
+const { createError } = require("../utils/errorUtils");
+const { AUTH } = require("../utils/errorConstants");
 
 const signup = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: "Email and password are required" });
-    }
-    const user = await authSignup(email, password);
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
 
-    await addRefreshToken(user.id, refreshToken);
+    if (!email || !password) throw createError(AUTH.EMAIL_PASSWORD_REQUIRED);
 
-    const csrfToken = generateCsrfToken();
-    setCsrfCookie(res, csrfToken);
+    // 2. Call one service function
+    const session = await authService.signup(email, password);
+    const { user, accessToken, refreshToken, csrfToken } = session;
+
+    // 3. Assemble response (security response via utility)
+    setSecurityCookies(res, refreshToken, csrfToken);
 
     res.status(201).json({
       message: "User created successfully",
-      user: { id: user.id, email: user.email },
+      user,
       accessToken,
-      refreshToken,
       csrfToken,
     });
   } catch (error) {
-    if (error.message === "User already exists") {
-      return res.status(409).json({ error: error.message });
-    }
     next(error);
   }
 };
@@ -48,67 +33,35 @@ const signup = async (req, res, next) => {
 const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: "Email and password are required" });
-    }
-    const user = await authLogin(email, password);
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
+    if (!email || !password) throw createError(AUTH.EMAIL_PASSWORD_REQUIRED);
 
-    await addRefreshToken(user.id, refreshToken);
+    const session = await authService.login(email, password);
+    const { user, accessToken, refreshToken, csrfToken } = session;
 
-    const csrfToken = generateCsrfToken();
-    setCsrfCookie(res, csrfToken);
+    setSecurityCookies(res, refreshToken, csrfToken);
 
     res.status(200).json({
       message: "Login successful",
-      user: { id: user.id, email: user.email },
+      user,
       accessToken,
-      refreshToken,
       csrfToken,
     });
   } catch (error) {
-    if (error.message === "Invalid credentials") {
-      return res.status(401).json({ error: error.message });
-    }
     next(error);
   }
 };
 
 const refreshToken = async (req, res, next) => {
   try {
-    const { token } = req.body;
-    if (!token) {
-      return res.status(400).json({ error: "Refresh token is required" });
-    }
+    const token = req.body.token || req.cookies.refreshToken;
 
-    const decoded = verifyRefreshToken(token);
-    if (!decoded) {
-      return res.status(401).json({ error: "Invalid refresh token" });
-    }
+    const session = await authService.refresh(token);
+    const { accessToken, refreshToken: newRefreshToken, csrfToken } = session;
 
-    const hasToken = await hasRefreshToken(decoded.id, token);
-    if (!hasToken) {
-      return res
-        .status(403)
-        .json({ error: "Refresh token not found or already used" });
-    }
-
-    const user = await findUserById(decoded.id);
-    if (!user) return res.status(401).json({ error: "User not found" });
-
-    const newAccessToken = generateAccessToken(user);
-    const newRefreshToken = generateRefreshToken(user);
-
-    await removeRefreshToken(user.id, token);
-    await addRefreshToken(user.id, newRefreshToken);
-
-    const csrfToken = generateCsrfToken();
-    setCsrfCookie(res, csrfToken);
+    setSecurityCookies(res, newRefreshToken, csrfToken);
 
     res.status(200).json({
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
+      accessToken,
       csrfToken,
     });
   } catch (error) {
@@ -118,13 +71,11 @@ const refreshToken = async (req, res, next) => {
 
 const logout = async (req, res, next) => {
   try {
-    const { token } = req.body;
-    if (token) {
-      const decoded = verifyRefreshToken(token);
-      if (decoded) {
-        await removeRefreshToken(decoded.id, token);
-      }
-    }
+    const token = req.body.token || req.cookies.refreshToken;
+    await authService.logout(token);
+
+    clearSecurityCookies(res);
+
     res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     next(error);

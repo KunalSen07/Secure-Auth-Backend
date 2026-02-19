@@ -78,12 +78,12 @@ A robust and secure authentication system built with Node.js and Express. This s
 
 ### Auth Routes (`/auth`)
 
-| Endpoint   | Method | Description          | Body                          |
-| :--------- | :----- | :------------------- | :---------------------------- |
-| `/signup`  | POST   | Register a new user  | `{ "email", "password" }`     |
-| `/login`   | POST   | Authenticate user    | `{ "email", "password" }`     |
-| `/refresh` | POST   | Get new access token | `{ "token" }` (refresh token) |
-| `/logout`  | POST   | Invalidate session   | `{ "token" }` (refresh token) |
+| Endpoint   | Method | Description          | Body                                          |
+| :--------- | :----- | :------------------- | :-------------------------------------------- |
+| `/signup`  | POST   | Register a new user  | `{ "email", "password" }`                     |
+| `/login`   | POST   | Authenticate user    | `{ "email", "password" }`                     |
+| `/refresh` | POST   | Get new access token | `{ "token" }` (optional if cookie is present) |
+| `/logout`  | POST   | Invalidate session   | `{ "token" }` (optional if cookie is present) |
 
 ## Security Implementation Details
 

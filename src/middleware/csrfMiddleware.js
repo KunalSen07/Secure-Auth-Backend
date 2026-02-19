@@ -1,4 +1,6 @@
 const crypto = require("crypto");
+const { createError } = require("../utils/errorUtils");
+const { AUTH } = require("../utils/errorConstants");
 
 function csrfMiddleware(req, res, next) {
   if (
@@ -13,7 +15,7 @@ function csrfMiddleware(req, res, next) {
   const csrfHeader = req.headers["x-csrf-token"];
 
   if (!csrfCookie || !csrfHeader) {
-    return res.status(403).json({ error: "CSRF token missing" });
+    return next(createError(AUTH.CSRF_MISSING));
   }
   try {
     const valid = crypto.timingSafeEqual(
@@ -21,9 +23,11 @@ function csrfMiddleware(req, res, next) {
       Buffer.from(csrfHeader),
     );
 
-    if (!valid) return res.status(403).json({ error: "Invalid CSRF token" });
+    if (!valid) {
+      return next(createError(AUTH.CSRF_INVALID));
+    }
   } catch {
-    return res.status(403).json({ error: "Invalid CSRF token" });
+    return next(createError(AUTH.CSRF_INVALID));
   }
 
   next();

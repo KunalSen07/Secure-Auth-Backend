@@ -1,5 +1,7 @@
 const { checkRateLimit } = require("../services/rateLimit/rateLimitService");
 const { normalizePath } = require("../utils/helper");
+const { createError } = require("../utils/errorUtils");
+const { AUTH } = require("../utils/errorConstants");
 
 async function rateLimitMiddleware(req, res, next) {
   const identity = req.user?.id || req.ip;
@@ -9,12 +11,13 @@ async function rateLimitMiddleware(req, res, next) {
     key: `${identity}:${normalizedPath}`,
     path: normalizedPath,
   });
+
   res.setHeader("X-RateLimit-Limit", limit);
   res.setHeader("X-RateLimit-Remaining", remaining);
   res.setHeader("X-RateLimit-Reset", reset);
 
   if (!allowed) {
-    return res.status(429).json({ error: "Too many requests" });
+    return next(createError(AUTH.RATE_LIMIT_EXCEEDED));
   }
 
   next();

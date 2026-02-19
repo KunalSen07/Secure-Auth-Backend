@@ -3,6 +3,8 @@ const cookieParser = require("cookie-parser");
 const authRoutes = require("./routes/authRoutes");
 const csrfMiddleware = require("./middleware/csrfMiddleware");
 const rateLimitMiddleware = require("./middleware/rateLimitMiddleware");
+const { SERVER } = require("./utils/errorConstants");
+const logger = require("./utils/logger");
 
 const app = express();
 
@@ -15,11 +17,17 @@ app.use(csrfMiddleware);
 
 app.use("/auth", authRoutes);
 
-
-
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: "Something went wrong!" });
+  const status = err.status || SERVER.INTERNAL_ERROR.status;
+  const message = err.message || SERVER.INTERNAL_ERROR.message;
+
+  if (status === 500) {
+    logger.error("Internal Server Error", err);
+  } else {
+    logger.warn(`Client Error: ${message}`, { status, path: req.path });
+  }
+
+  res.status(status).json({ error: message });
 });
 
 module.exports = app;
